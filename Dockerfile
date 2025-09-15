@@ -43,6 +43,9 @@ COPY --from=builder / /
 
 WORKDIR /home/node
 
+# Install pnpm globally
+RUN npm install -g pnpm@latest
+
 # Set environment variables
 ENV NODE_ICU_DATA=/usr/local/lib/node_modules/full-icu
 ENV N8N_PORT=5678
@@ -62,9 +65,9 @@ USER node
 # Copy application files
 COPY --chown=node:node . .
 
-# Install dependencies
-RUN npm ci --only=production && \
-    npm cache clean --force
+# Install dependencies using pnpm
+RUN pnpm install --prod --frozen-lockfile && \
+    pnpm store prune
 
 # Start the application
 ENTRYPOINT ["tini", "--"]
