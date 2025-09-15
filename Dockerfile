@@ -1,83 +1,45 @@
-# Use Node.js 20 Alpine as base image
-FROM node:20-alpine AS builder
+ARG NODE_VERSION=22
 
-# Set working directory
-WORKDIR /app
+# ==============================================================================
+# STAGE 1: Builder for Base Dependencies
+# ==============================================================================
+FROM node:${NODE_VERSION}-alpine AS builder
 
-# Install build dependencies
-RUN apk add --no-cache \
-    python3 \
-    make \
-    g++ \
-    git \
-    ca-certificates \
-    tzdata
+# Install fonts
+RUN \
+  apk --no-cache add --virtual .build-deps-fonts msttcorefonts-installer fontconfig && \
+  update-ms-fonts && \
+  fc-cache -f && \
+  apk del .build-deps-fonts && \
+  find /usr/share/fonts/truetype/msttcorefonts/ -type l -exec unlink {} \;
 
-# Install pnpm globally
-RUN npm install -g pnpm@latest
+# Install essential OS dependencies
+RUN echo "https://dl-cdn.alpinelinux.org/alpine/v3.22/main" >> /etc/apk/repositories && echo "https://dl-cdn.alpinelinux.org/alpine/v3.22/community" >> /etc/apk/repositories && \
+    apk update && \
+    apk add --no-cache \
+        git \
+        openssh \
+        openssl \
+        graphicsmagick \
+        tini \
+        tzdata \
+        ca-certificates \
+        libc6-compat \
+        jq
 
-# Copy package files
-COPY package*.json ./
-COPY pnpm-lock.yaml ./
-COPY pnpm-workspace.yaml ./
-COPY turbo.json ./
-COPY patches/ ./patches/
+# Install full-icu
+RUN npm install -g full-icu@1.5.0
 
-# Copy package.json files for all packages
-COPY packages/*/package.json ./packages/*/
+RUN rm -rf /tmp/* /root/.npm /root/.cache/node /opt/yarn* && \
+  apk del apk-tools
 
-# Install dependencies (ignore engines to bypass Node version check)
-RUN pnpm install --frozen-lockfile --ignore-workspace
+# ==============================================================================
+# STAGE 2: Final Base Runtime Image
+# ==============================================================================
+FROM node:${NODE_VERSION}-alpine
 
-# Copy source code
-COPY . .
+COPY --from=builder / /
 
-# Build the application
-RUN pnpm build
-
-# Production stage
-FROM node:20-alpine AS production
-
-# Install runtime dependencies
-RUN apk add --no-cache \
-    ca-certificates \
-    tzdata \
-    curl
-
-# Create n8n user (handle existing node user)
-RUN addgroup -g 1001 n8n && \
-    adduser -u 1001 -G n8n -s /bin/sh -D n8n
-
-# Set working directory
-WORKDIR /app
-
-# Copy built application from builder stage
-COPY --from=builder --chown=n8n:n8n /app/dist ./dist
-COPY --from=builder --chown=n8n:n8n /app/node_modules ./node_modules
-COPY --from=builder --chown=n8n:n8n /app/packages ./packages
-COPY --from=builder --chown=n8n:n8n /app/package*.json ./
-COPY --from=builder --chown=n8n:n8n /app/pnpm-lock.yaml ./
-COPY --from=builder --chown=n8n:n8n /app/pnpm-workspace.yaml ./
-
-# Create necessary directories
-RUN mkdir -p /app/data && \
-    chown -R n8n:n8n /app/data
-
-# Switch to n8n user
-USER n8n
-
-# Expose port
-EXPOSE 5678
-
-# Set environment variables
-ENV NODE_ENV=production
-ENV N8N_PORT=5678
-ENV N8N_PROTOCOL=http
-ENV N8N_HOST=0.0.0.0
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD curl -f http://localhost:5678/healthz || exit 1
-
-# Start n8n
-CMD ["node", "packages/cli/bin/n8n"]
+WORKDIR /home/node
+ENV NODE_ICU_DATA=/usr/local/lib/node_modules/full-icu
+EXPOSE 5678/tcp
