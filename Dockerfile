@@ -15,14 +15,16 @@ RUN apk add --no-cache \
 
 # Copy package files
 COPY package*.json ./
-COPY packages ./packages
-COPY tsconfig*.json ./
-COPY .npmrc ./
+COPY lerna.json ./
+COPY packages/*/package.json ./packages/*/
 
 # Install dependencies
-RUN npm ci --include=dev
+RUN npm ci --only=production --ignore-scripts
 
-# Build the project
+# Copy source code
+COPY . .
+
+# Build the application
 RUN npm run build
 
 # Production stage
@@ -34,36 +36,39 @@ RUN apk add --no-cache \
     tzdata \
     curl
 
-# Create n8n user
-RUN addgroup -g 1000 node && \
-    adduser -u 1000 -G node -s /bin/sh -D node
+# Create n8n user (handle existing node user)
+RUN addgroup -g 1001 n8n && \
+    adduser -u 1001 -G n8n -s /bin/sh -D n8n
 
 # Set working directory
-WORKDIR /home/node
+WORKDIR /app
 
 # Copy built application from builder stage
-COPY --from=builder --chown=node:node /app/dist ./dist
-COPY --from=builder --chown=node:node /app/node_modules ./node_modules
-COPY --from=builder --chown=node:node /app/package*.json ./
+COPY --from=builder --chown=n8n:n8n /app/dist ./dist
+COPY --from=builder --chown=n8n:n8n /app/node_modules ./node_modules
+COPY --from=builder --chown=n8n:n8n /app/packages ./packages
+COPY --from=builder --chown=n8n:n8n /app/package*.json ./
+COPY --from=builder --chown=n8n:n8n /app/lerna.json ./
 
 # Create necessary directories
-RUN mkdir -p /home/node/.n8n && \
-    chown -R node:node /home/node/.n8n
+RUN mkdir -p /app/data && \
+    chown -R n8n:n8n /app/data
 
 # Switch to n8n user
-USER node
+USER n8n
 
 # Expose port
 EXPOSE 5678
+
+# Set environment variables
+ENV NODE_ENV=production
+ENV N8N_PORT=5678
+ENV N8N_PROTOCOL=http
+ENV N8N_HOST=0.0.0.0
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD curl -f http://localhost:5678/healthz || exit 1
 
-# Set environment variables
-ENV NODE_ENV=production
-ENV N8N_DIAGNOSTICS_ENABLED=false
-ENV N8N_VERSION_NOTIFICATIONS_ENABLED=false
-
 # Start n8n
-CMD ["node", "dist/cli/bin/n8n", "start"]
+CMD ["node", "packages/cli/bin/n8n"]
