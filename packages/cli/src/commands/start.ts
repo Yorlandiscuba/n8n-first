@@ -221,9 +221,8 @@ export class Start extends BaseCommand<z.infer<typeof flagsSchema>> {
 
 		await this.initLicense();
 
-		if (isMultiMainEnabled && !this.license.isMultiMainLicensed()) {
-			throw new FeatureNotLicensedError(LICENSE_FEATURES.MULTIPLE_MAIN_INSTANCES);
-		}
+		// Allow multi-main instances regardless of license
+		// Bypass license restriction for multiple main instances
 
 		Container.get(WaitTracker).init();
 		this.logger.debug('Wait tracker init complete');

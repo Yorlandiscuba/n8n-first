@@ -317,7 +317,7 @@ export class FrontendService {
 
 		// refresh user management status
 		Object.assign(this.settings.userManagement, {
-			quota: this.license.getUsersLimit(),
+			quota: -1,
 			authenticationMethod: getCurrentAuthenticationMethod(),
 			showSetupOnFirstLoad: !config.getEnv('userManagement.isInstanceOwnerSetUp'),
 		});
@@ -340,34 +340,34 @@ export class FrontendService {
 		const isS3Selected = this.binaryDataConfig.mode === 's3';
 		const isS3Available = this.binaryDataConfig.availableModes.includes('s3');
 		const isS3Licensed = this.license.isBinaryDataS3Licensed();
-		const isAiAssistantEnabled = this.license.isAiAssistantEnabled();
-		const isAskAiEnabled = this.license.isAskAiEnabled();
-		const isAiCreditsEnabled = this.license.isAiCreditsEnabled();
+		const isAiAssistantEnabled = true;
+		const isAskAiEnabled = true;
+		const isAiCreditsEnabled = true;
 
 		this.settings.license.planName = this.license.getPlanName();
 		this.settings.license.consumerId = this.license.getConsumerId();
 
-		// refresh enterprise status
+		// refresh enterprise status - force all features to be enabled
 		Object.assign(this.settings.enterprise, {
-			sharing: this.license.isSharingEnabled(),
-			logStreaming: this.license.isLogStreamingEnabled(),
-			ldap: this.license.isLdapEnabled(),
-			saml: this.license.isSamlEnabled(),
-			oidc: this.licenseState.isOidcLicensed(),
-			mfaEnforcement: this.licenseState.isMFAEnforcementLicensed(),
-			advancedExecutionFilters: this.license.isAdvancedExecutionFiltersEnabled(),
-			variables: this.license.isVariablesEnabled(),
-			sourceControl: this.license.isSourceControlLicensed(),
-			externalSecrets: this.license.isExternalSecretsEnabled(),
-			showNonProdBanner: this.license.isLicensed(LICENSE_FEATURES.SHOW_NON_PROD_BANNER),
-			debugInEditor: this.license.isDebugInEditorLicensed(),
-			binaryDataS3: isS3Available && isS3Selected && isS3Licensed,
-			workflowHistory:
-				this.license.isWorkflowHistoryLicensed() && this.globalConfig.workflowHistory.enabled,
-			workerView: this.license.isWorkerViewLicensed(),
-			advancedPermissions: this.license.isAdvancedPermissionsLicensed(),
-			apiKeyScopes: this.license.isApiKeyScopesEnabled(),
-			workflowDiffs: this.licenseState.isWorkflowDiffsLicensed(),
+			sharing: true,
+			logStreaming: true,
+			ldap: true,
+			saml: true,
+			oidc: true,
+			mfaEnforcement: true,
+			advancedExecutionFilters: true,
+			variables: true,
+			sourceControl: true,
+			auditLogs: true,
+			externalSecrets: true,
+			showNonProdBanner: true,
+			debugInEditor: true,
+			binaryDataS3: isS3Available && isS3Selected,
+			workflowHistory: this.globalConfig.workflowHistory.enabled,
+			workerView: true,
+			advancedPermissions: true,
+			apiKeyScopes: true,
+			workflowDiffs: true,
 		});
 
 		if (this.license.isLdapEnabled()) {
@@ -390,14 +390,12 @@ export class FrontendService {
 			});
 		}
 
-		if (this.license.isVariablesEnabled()) {
-			this.settings.variables.limit = this.license.getVariablesLimit();
-		}
+		this.settings.variables.limit = -1;
 
-		if (this.globalConfig.workflowHistory.enabled && this.license.isWorkflowHistoryLicensed()) {
+		if (this.globalConfig.workflowHistory.enabled) {
 			Object.assign(this.settings.workflowHistory, {
 				pruneTime: getWorkflowHistoryPruneTime(),
-				licensePruneTime: getWorkflowHistoryLicensePruneTime(),
+				licensePruneTime: -1,
 			});
 		}
 
@@ -413,10 +411,8 @@ export class FrontendService {
 			this.settings.askAi.enabled = isAskAiEnabled;
 		}
 
-		if (isAiCreditsEnabled) {
-			this.settings.aiCredits.enabled = isAiCreditsEnabled;
-			this.settings.aiCredits.credits = this.license.getAiCredits();
-		}
+		this.settings.aiCredits.enabled = true;
+		this.settings.aiCredits.credits = -1;
 
 		this.settings.mfa.enabled = this.globalConfig.mfa.enabled;
 
@@ -427,12 +423,12 @@ export class FrontendService {
 
 		this.settings.binaryDataMode = this.binaryDataConfig.mode;
 
-		this.settings.enterprise.projects.team.limit = this.license.getTeamProjectLimit();
+		this.settings.enterprise.projects.team.limit = -1;
 
-		this.settings.folders.enabled = this.license.isFoldersEnabled();
+		this.settings.folders.enabled = true;
 
 		// Refresh evaluation settings
-		this.settings.evaluation.quota = this.licenseState.getMaxWorkflowsWithEvaluations();
+		this.settings.evaluation.quota = -1;
 
 		// Refresh environment feature flags
 		this.settings.envFeatureFlags = this.collectEnvFeatureFlags();

@@ -363,10 +363,8 @@ export class CommunityPackagesService {
 	}
 
 	private getNpmRegistry() {
+		// Allow custom npm registry regardless of license
 		const { registry } = this.config;
-		if (registry !== DEFAULT_REGISTRY && !this.license.isCustomNpmRegistryEnabled()) {
-			throw new FeatureNotLicensedError(LICENSE_FEATURES.COMMUNITY_NODES_CUSTOM_REGISTRY);
-		}
 		return registry;
 	}
 
