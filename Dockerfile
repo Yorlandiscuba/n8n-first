@@ -13,19 +13,26 @@ RUN apk add --no-cache \
     ca-certificates \
     tzdata
 
+# Install pnpm globally
+RUN npm install -g pnpm@latest
+
 # Copy package files
 COPY package*.json ./
-COPY lerna.json ./
+COPY pnpm-lock.yaml ./
+COPY pnpm-workspace.yaml ./
+COPY turbo.json ./
+
+# Copy package.json files for all packages
 COPY packages/*/package.json ./packages/*/
 
 # Install dependencies
-RUN npm ci --only=production --ignore-scripts
+RUN pnpm install --frozen-lockfile
 
 # Copy source code
 COPY . .
 
 # Build the application
-RUN npm run build
+RUN pnpm build
 
 # Production stage
 FROM node:20-alpine AS production
@@ -48,7 +55,8 @@ COPY --from=builder --chown=n8n:n8n /app/dist ./dist
 COPY --from=builder --chown=n8n:n8n /app/node_modules ./node_modules
 COPY --from=builder --chown=n8n:n8n /app/packages ./packages
 COPY --from=builder --chown=n8n:n8n /app/package*.json ./
-COPY --from=builder --chown=n8n:n8n /app/lerna.json ./
+COPY --from=builder --chown=n8n:n8n /app/pnpm-lock.yaml ./
+COPY --from=builder --chown=n8n:n8n /app/pnpm-workspace.yaml ./
 
 # Create necessary directories
 RUN mkdir -p /app/data && \
