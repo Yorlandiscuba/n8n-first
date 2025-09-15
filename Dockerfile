@@ -25,7 +25,8 @@ RUN echo "https://dl-cdn.alpinelinux.org/alpine/v3.22/main" >> /etc/apk/reposito
         tzdata \
         ca-certificates \
         libc6-compat \
-        jq
+        jq \
+        curl
 
 # Install full-icu
 RUN npm install -g full-icu@1.5.0
@@ -41,5 +42,34 @@ FROM node:${NODE_VERSION}-alpine
 COPY --from=builder / /
 
 WORKDIR /home/node
+
+# Create non-root user
+RUN addgroup -g 1000 node && \
+    adduser -D -s /bin/sh -u 1000 -G node node
+
+# Set environment variables
 ENV NODE_ICU_DATA=/usr/local/lib/node_modules/full-icu
+ENV N8N_PORT=5678
+ENV N8N_LISTEN_ADDRESS=0.0.0.0
+ENV NODE_ENV=production
+
+# Expose port
 EXPOSE 5678/tcp
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+  CMD curl -f http://localhost:5678/healthz || exit 1
+
+# Switch to non-root user
+USER node
+
+# Copy application files
+COPY --chown=node:node . .
+
+# Install dependencies
+RUN npm ci --only=production && \
+    npm cache clean --force
+
+# Start the application
+ENTRYPOINT ["tini", "--"]
+CMD ["node", "packages/cli/bin/n8n"]
