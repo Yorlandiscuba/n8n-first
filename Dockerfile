@@ -43,10 +43,6 @@ COPY --from=builder / /
 
 WORKDIR /home/node
 
-# Create non-root user
-RUN addgroup -g 1000 node && \
-    adduser -D -s /bin/sh -u 1000 -G node node
-
 # Set environment variables
 ENV NODE_ICU_DATA=/usr/local/lib/node_modules/full-icu
 ENV N8N_PORT=5678
@@ -60,7 +56,7 @@ EXPOSE 5678/tcp
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
   CMD curl -f http://localhost:5678/healthz || exit 1
 
-# Switch to non-root user
+# Use existing node user
 USER node
 
 # Copy application files
