@@ -1,7 +1,7 @@
 ARG NODE_VERSION=20
 
 # 1. Create an image to build n8n
-FROM --platform=linux/amd64 n8nio/base:${NODE_VERSION} AS builder
+FROM n8nio/base:${NODE_VERSION} AS builder
 
 # Build the application from source
 WORKDIR /src
@@ -60,6 +60,7 @@ RUN sed -i 's/sharing: false,/sharing: true,/g' packages/cli/src/services/fronte
 
 # Instalar dependencias y construir
 ENV NODE_OPTIONS="--max-old-space-size=4096"
+RUN npm install -g pnpm
 RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store --mount=type=cache,id=pnpm-metadata,target=/root/.cache/pnpm/metadata DOCKER_BUILD=true pnpm install --no-frozen-lockfile
 RUN pnpm build
 
